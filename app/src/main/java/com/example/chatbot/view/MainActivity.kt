@@ -1,8 +1,12 @@
 package com.example.chatbot.view
 
+import android.content.Context
 import android.content.SharedPreferences
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -13,9 +17,12 @@ import com.example.chatbot.common.Constants.SEND_ID
 import com.example.chatbot.model.Message
 import com.example.chatbot.viewmodel.MessageViewModel
 import com.example.chatbot.network.BotRequest
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.*
+import java.lang.reflect.Type
 import java.util.HashMap
 
 @AndroidEntryPoint
@@ -27,7 +34,19 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        recyclerView()
+
+        preferences = this.getSharedPreferences("ChatBot", Context.MODE_PRIVATE)
+        val json: String? = preferences.getString("messageList", "")
+        val type: Type = object : TypeToken<ArrayList<Message?>?>() {}.type
+        if(json==""){
+            recyclerView(arrayListOf<Message>())
+        }else{
+            val messagesList: ArrayList<Message> = Gson().fromJson<ArrayList<Message>>(json, type)
+            recyclerView(messagesList)
+        }
+
+
+
 
         clickEvents()
 
@@ -40,8 +59,8 @@ class MainActivity : AppCompatActivity() {
         })
 
     }
-    private fun recyclerView() {
-        adapter = MessagingAdapter()
+    private fun recyclerView(messageList:ArrayList<Message>) {
+        adapter = MessagingAdapter(messageList)
         rv_messages.adapter = adapter
         rv_messages.layoutManager = LinearLayoutManager(applicationContext)
 
@@ -83,6 +102,32 @@ class MainActivity : AppCompatActivity() {
             messageViewModel.getBotMessage(hashMap)
 
 
+        }
+    }
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.menu,menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        val id = item.itemId
+        if (id == R.id.bot1){
+            Toast.makeText(this, "bot 1 Chatting", Toast.LENGTH_SHORT).show()
+
+            return true
+        }else if (id == R.id.bot2){
+            Toast.makeText(this,"bot 2 Chatting", Toast.LENGTH_SHORT).show()
+            return true
+        }
+        return super.onOptionsItemSelected(item)
+    }
+    override fun onStart() {
+        super.onStart()
+        GlobalScope.launch {
+            delay(100)
+            withContext(Dispatchers.Main) {
+                rv_messages.scrollToPosition(adapter.itemCount - 1)
+            }
         }
     }
 }

@@ -1,6 +1,8 @@
 package com.example.chatbot.adapter
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.content.SharedPreferences
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,14 +11,14 @@ import com.example.chatbot.R
 import com.example.chatbot.common.Constants.RECEIVE_ID
 import com.example.chatbot.common.Constants.SEND_ID
 import com.example.chatbot.model.Message
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.android.synthetic.main.message_item.view.*
+import java.lang.reflect.Type
 
 
-
-class MessagingAdapter : RecyclerView.Adapter<MessagingAdapter.MessageViewHolder>() {
-
-    var messagesList = mutableListOf<Message>()
-
+class MessagingAdapter constructor(private var messagesList:ArrayList<Message>): RecyclerView.Adapter<MessagingAdapter.MessageViewHolder>() {
+    lateinit var preferences: SharedPreferences
     inner class MessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
 
 
@@ -35,6 +37,13 @@ class MessagingAdapter : RecyclerView.Adapter<MessagingAdapter.MessageViewHolder
 
     @SuppressLint("SetTextI18n")
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
+
+        preferences = holder.itemView.context.getSharedPreferences("ChatBot", Context.MODE_PRIVATE)
+        preferences.edit().putString("messageList", Gson().toJson(messagesList)).apply()
+
+        val json: String? = preferences.getString("messageList", "")
+        val type: Type = object : TypeToken<List<Message?>?>() {}.type
+        val messagesList: List<Message> = Gson().fromJson<List<Message>>(json, type)
 
         val currentMessage = messagesList[position]
 
