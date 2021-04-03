@@ -2,6 +2,9 @@ package com.example.chatbot.view
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.Menu
@@ -12,6 +15,7 @@ import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.chatbot.R
 import com.example.chatbot.adapter.MessagingAdapter
+import com.example.chatbot.common.ConnectionReceiver
 import com.example.chatbot.common.Constants.RECEIVE_ID
 import com.example.chatbot.common.Constants.SEND_ID
 import com.example.chatbot.model.Message
@@ -33,6 +37,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+
+
 
 
         preferences = this.getSharedPreferences("ChatBot", Context.MODE_PRIVATE)
@@ -87,19 +94,58 @@ class MainActivity : AppCompatActivity() {
         val message = et_message.text.toString()
 
         if (message.isNotEmpty()) {
-            et_message.setText("")
-            adapter.insertMessage(Message(63906,"","",message, SEND_ID))
-            rv_messages.scrollToPosition(adapter.itemCount - 1)
-            val ob =  BotRequest("6nt5d1nJHkqbkphe","63906","Batman",message)
 
-            var hashMap : HashMap<String, String>
-                    = HashMap<String, String> ()
-            hashMap.put("apiKey", ob.apiKey.toString())
-            hashMap.put("chatBotID",ob.chatBotID.toString())
-            hashMap.put("externalID", ob.externalID.toString())
-            hashMap.put("message", ob.message.toString())
+            val networkConnection = ConnectionReceiver(applicationContext)
+            networkConnection.observe(this, Observer {isConnected->
+                if(isConnected){
+                    et_message.setText("")
 
-            messageViewModel.getBotMessage(hashMap)
+                    val json: String? = preferences.getString("waitList", "")
+                    val type: Type = object : TypeToken<List<Message?>?>() {}.type
+                    if(json==""){
+                        adapter.insertMessage(Message(63906,"","",message, SEND_ID))
+                        rv_messages.scrollToPosition(adapter.itemCount - 1)
+                        val ob =  BotRequest("6nt5d1nJHkqbkphe","63906","Batman",message)
+
+                        var hashMap : HashMap<String, String>
+                                = HashMap<String, String> ()
+                        hashMap.put("apiKey", ob.apiKey.toString())
+                        hashMap.put("chatBotID",ob.chatBotID.toString())
+                        hashMap.put("externalID", ob.externalID.toString())
+                        hashMap.put("message", ob.message.toString())
+
+                        messageViewModel.getBotMessage(hashMap)
+                    }else{
+                        val messagesList: HashMap<String,String> = Gson().fromJson<HashMap<String,String>>(json, type)
+                        var oldMessage:String = messagesList.get("message").toString()
+                        adapter.insertMessage(Message(63906,"","",oldMessage, SEND_ID))
+                        rv_messages.scrollToPosition(adapter.itemCount - 1)
+                        messageViewModel.getBotMessage(messagesList)
+                        preferences.edit().remove("waitList").apply()
+
+                    }
+
+
+                }else {
+                    val ob =  BotRequest("6nt5d1nJHkqbkphe","63906","Batman",message)
+
+                    var hashMap : HashMap<String, String>
+                            = HashMap<String, String> ()
+                    hashMap.put("apiKey", ob.apiKey.toString())
+                    hashMap.put("chatBotID",ob.chatBotID.toString())
+                    hashMap.put("externalID", ob.externalID.toString())
+                    hashMap.put("message", ob.message.toString())
+                    preferences.edit().putString("waitList", Gson().toJson(hashMap)).apply()
+
+
+
+
+                }
+
+            })
+
+
+
 
 
         }
@@ -129,5 +175,33 @@ class MainActivity : AppCompatActivity() {
                 rv_messages.scrollToPosition(adapter.itemCount - 1)
             }
         }
+    }
+
+    fun isInternetAvailable(context: Context?): Boolean {
+        var result = false
+        val cm = context?.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            cm?.run {
+                cm.getNetworkCapabilities(cm.activeNetwork)?.run {
+                    result = when {
+                        hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> true
+                        hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> true
+                        hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> true
+                        else -> false
+                    }
+                }
+            }
+        } else {
+            cm?.run {
+                cm.activeNetworkInfo?.run {
+                    if (type == ConnectivityManager.TYPE_WIFI) {
+                        result = true
+                    } else if (type == ConnectivityManager.TYPE_MOBILE) {
+                        result = true
+                    }
+                }
+            }
+        }
+        return result
     }
 }
